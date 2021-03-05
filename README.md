@@ -1,18 +1,18 @@
 # c19frcheck
 
-Little program to check moratlity rate in france due to covid19, and compare it to other periods.
+Programme visant à calculer le taux de mortalité du covid en France et de le comparer aux épidémies (de grippe) d'autres années.
 
-The data are fetched automatically from official sources.
+Les données sontrécupérées automatiquement par le programme depuis des sources officielles.
 
-# how to run
-
-```
-# need python3
-# with dependencies in requirements.txt
-run.py all
-```
-
-# results
+# Résultats
 
 ![Taux de mortalité par âge](res_taux_mortalite_par_age.png)
 ![Décès par date](res_deces_par_date.png)
+
+# Comment executer
+
+```
+# need python3
+pip install -r requirements.txt
+run.py all
+```
