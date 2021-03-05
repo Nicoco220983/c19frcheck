@@ -260,7 +260,7 @@ def _export_graphs():
         plt.plot(range(len(dates_2020)), [deces_par_date_2020.get(d, 0) for d in dates_2020], label=f"Covid19 (de {date_range_2020[0]} à {date_range_2020[1]})")
         plt.title("Deces par date")
         plt.legend()
-        plt.savefig(os.path.join(HERE, 'res_deces_par_age.png'))
+        plt.savefig(os.path.join(HERE, 'res_deces_par_date.png'))
 
 
 # parsing
