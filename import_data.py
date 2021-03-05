@@ -5,7 +5,7 @@ import re
 import click
 import sqlite3
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
 from glob import glob
 import xlrd
@@ -15,7 +15,7 @@ HERE = os.path.dirname(__file__)
 
 DATE_RANGES = {
     "grippe 2016/2017": ("2017-01-01", "2017-02-01"),
-    "covid 2019/2020": ("2020-03-15", "2020-04-15")
+    "covid 2019/2020": ("2020-03-20", "2020-04-20")
 }
 
 DATA_FILES_CONFS = [
@@ -64,7 +64,7 @@ def all():
     _init_db()
     _download_data()
     _import_data()
-    _export_graph()
+    _export_graphs()
 
 
 @main.command("init_db")
@@ -192,13 +192,13 @@ def _insert_ages_in_db(conn, rows):
         [(row["annee"], row["age"], row["nb"]) for row in rows])
 
 
-@main.command("export_graph")
-def export_graph_cmd():
-    _export_graph()
+@main.command("export_graphs")
+def export_graphs_cmd():
+    _export_graphs()
 
 
-def _export_graph():
-    print(f"export graph")
+def _export_graphs():
+    print(f"export graphs")
     _assert_all_date_ranges_have_same_duration()
     with _db_connect() as conn:
         cur = conn.cursor()
@@ -221,8 +221,10 @@ def _export_graph():
                 deces_age = min(deces_age, 100)
                 res[deces_age] += 1
             return res
-        nb_deces_par_age_2017 = _compute_deces_par_age(DATE_RANGES["grippe 2016/2017"])
-        nb_deces_par_age_2020 = _compute_deces_par_age(DATE_RANGES["covid 2019/2020"])
+        date_range_2017 = DATE_RANGES["grippe 2016/2017"]
+        date_range_2020 = DATE_RANGES["covid 2019/2020"]
+        nb_deces_par_age_2017 = _compute_deces_par_age(date_range_2017)
+        nb_deces_par_age_2020 = _compute_deces_par_age(date_range_2020)
         # build taux_mortalite_par_age
         def _compute_taux_mortalite_par_age(deces, pda):
             res = {}
@@ -232,11 +234,30 @@ def _export_graph():
             return res
         taux_mortalite_par_age_2017 = _compute_taux_mortalite_par_age(nb_deces_par_age_2017, pyramides_des_ages[2017])
         taux_mortalite_par_age_2020 = _compute_taux_mortalite_par_age(nb_deces_par_age_2020, pyramides_des_ages[2020])
-        # plot
+        # plot taux de mortalite
         age_range = list(range(1, 101))
-        plt.plot(age_range, [taux_mortalite_par_age_2017.get(i, 0) for i in age_range], label="Grippe (2017)")
-        plt.plot(age_range, [taux_mortalite_par_age_2020.get(i, 0) for i in age_range], label="Covid19 (2020)")
+        plt.plot(age_range, [taux_mortalite_par_age_2017.get(i, 0) for i in age_range], label=f"Grippe (de {date_range_2017[0]} à {date_range_2017[1]})")
+        plt.plot(age_range, [taux_mortalite_par_age_2020.get(i, 0) for i in age_range], label=f"Covid19 (de {date_range_2020[0]} à {date_range_2020[1]})")
         plt.title("Taux de mortalité par âge")
+        plt.legend()
+        plt.show()
+        # plot
+        def _compute_deces_par_date(date_range):
+            res = defaultdict(int)
+            cur = conn.cursor()
+            rows = cur.execute('''SELECT sex, date_naissance, date_deces FROM deces WHERE date_deces BETWEEN ? AND ?''',
+                [*date_range])
+            for sex, date_naissance, date_deces in rows:
+                deces_dt = _to_dt(date_deces)
+                res[deces_dt] += 1
+            return res
+        deces_par_date_2017 = _compute_deces_par_date(date_range_2017)
+        deces_par_date_2020 = _compute_deces_par_date(date_range_2020)
+        dates_2017 = _date_range_to_dates(date_range_2017)
+        dates_2020 = _date_range_to_dates(date_range_2020)
+        plt.plot(range(len(dates_2017)), [deces_par_date_2017.get(d, 0) for d in dates_2017], label=f"Grippe (de {date_range_2017[0]} à {date_range_2017[1]})")
+        plt.plot(range(len(dates_2020)), [deces_par_date_2020.get(d, 0) for d in dates_2020], label=f"Covid19 (de {date_range_2020[0]} à {date_range_2020[1]})")
+        plt.title("Deces par date")
         plt.legend()
         plt.show()
 
@@ -287,6 +308,17 @@ def _assert_all_date_ranges_have_same_duration():
             duration = dur
         else:
             assert duration == dur
+
+
+def _date_range_to_dates(date_range):
+    res = []
+    start, end = _to_dt(date_range[0]), _to_dt(date_range[1])
+    day = start
+    while day <= end:
+        res.append(day)
+        day += timedelta(days=1)
+    return res
+
 
 # utils
 
