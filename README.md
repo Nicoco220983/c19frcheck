@@ -9,7 +9,7 @@ The data are fetched automatically from official sources.
 ```
 # need python3
 # with dependencies in requirements.txt
-import_data.py all
+run.py all
 ```
 
 # results
