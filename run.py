@@ -64,7 +64,8 @@ def all():
     _init_db()
     _download_data()
     _import_data()
-    _export_graphs()
+    _compute_taux_mortalite_par_age()
+    _compute_deces_par_date()
 
 
 @main.command("init_db")
@@ -192,13 +193,13 @@ def _insert_ages_in_db(conn, rows):
         [(row["annee"], row["age"], row["nb"]) for row in rows])
 
 
-@main.command("export_graphs")
-def export_graphs_cmd():
-    _export_graphs()
+@main.command("_compute_taux_mortalite_par_age")
+def compute_taux_mortalite_par_age():
+    _compute_taux_mortalite_par_age()
 
 
-def _export_graphs():
-    print(f"export graphs")
+def _compute_taux_mortalite_par_age():
+    print(f"compute taux_mortalite_par_age")
     _assert_all_date_ranges_have_same_duration()
     with _db_connect() as conn:
         cur = conn.cursor()
@@ -241,6 +242,17 @@ def _export_graphs():
         plt.title("Taux de mortalité par âge")
         plt.legend()
         plt.savefig(os.path.join(HERE, 'res_taux_mortalite_par_age.png'))
+
+
+@main.command("_compute_deces_par_date")
+def compute_deces_par_date():
+    _compute_deces_par_date()
+
+
+def _compute_deces_par_date():
+    print(f"compute deces_par_date")
+    _assert_all_date_ranges_have_same_duration()
+    with _db_connect() as conn:
         # plot
         def _compute_deces_par_date(date_range):
             res = defaultdict(int)
@@ -251,6 +263,8 @@ def _export_graphs():
                 deces_dt = _to_dt(date_deces)
                 res[deces_dt] += 1
             return res
+        date_range_2017 = DATE_RANGES["grippe 2016/2017"]
+        date_range_2020 = DATE_RANGES["covid 2019/2020"]
         deces_par_date_2017 = _compute_deces_par_date(date_range_2017)
         deces_par_date_2020 = _compute_deces_par_date(date_range_2020)
         dates_2017 = _date_range_to_dates(date_range_2017)
