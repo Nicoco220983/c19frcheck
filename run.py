@@ -273,7 +273,7 @@ def _compute_deces_par_date():
         plt.clf()
         plt.plot(range(len(dates_2017)), [deces_par_date_2017.get(d, 0) for d in dates_2017], label=f"Grippe (de {date_range_2017[0]} à {date_range_2017[1]})")
         plt.plot(range(len(dates_2020)), [deces_par_date_2020.get(d, 0) for d in dates_2020], label=f"Covid19 (de {date_range_2020[0]} à {date_range_2020[1]})")
-        plt.title("Deces par date")
+        plt.title("Décès par date")
         plt.legend()
         plt.savefig(os.path.join(HERE, 'results/deces_par_date.png'))
 
@@ -299,7 +299,7 @@ def _compute_population_par_age():
         age_range = list(range(1, 101))
         plt.plot(age_range, [pop_par_age_2017.get(i, 0) for i in age_range], label=f"2017")
         plt.plot(age_range, [pop_par_age_2020.get(i, 0) for i in age_range], label=f"2020")
-        plt.title("Population par age")
+        plt.title("Population par âge")
         plt.legend()
         plt.savefig(os.path.join(HERE, 'results/population_par_age.png'))
 
