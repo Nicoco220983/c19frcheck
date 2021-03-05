@@ -6,8 +6,11 @@ Les données sontrécupérées automatiquement par le programme depuis des sourc
 
 # Résultats
 
-![Taux de mortalité par âge](res_taux_mortalite_par_age.png)
-![Décès par date](res_deces_par_date.png)
+![Taux de mortalité par âge](results/taux_mortalite_par_age.png)
+
+![Décès par date](results/deces_par_date.png)
+
+![Population par age](results/population_par_age.png)
 
 # Comment executer
 
