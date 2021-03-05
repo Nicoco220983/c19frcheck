@@ -66,6 +66,7 @@ def all():
     _import_data()
     _compute_taux_mortalite_par_age()
     _compute_deces_par_date()
+    _compute_deces_par_age()
 
 
 @main.command("init_db")
@@ -237,6 +238,7 @@ def _compute_taux_mortalite_par_age():
         taux_mortalite_par_age_2020 = _compute_taux_mortalite_par_age(nb_deces_par_age_2020, pyramides_des_ages[2020])
         # plot taux de mortalite
         age_range = list(range(1, 101))
+        plt.clf()
         plt.plot(age_range, [taux_mortalite_par_age_2017.get(i, 0) for i in age_range], label=f"Grippe (de {date_range_2017[0]} à {date_range_2017[1]})")
         plt.plot(age_range, [taux_mortalite_par_age_2020.get(i, 0) for i in age_range], label=f"Covid19 (de {date_range_2020[0]} à {date_range_2020[1]})")
         plt.title("Taux de mortalité par âge")
@@ -244,7 +246,7 @@ def _compute_taux_mortalite_par_age():
         plt.savefig(os.path.join(HERE, 'res_taux_mortalite_par_age.png'))
 
 
-@main.command("_compute_deces_par_date")
+@main.command("compute_deces_par_date")
 def compute_deces_par_date():
     _compute_deces_par_date()
 
@@ -253,7 +255,6 @@ def _compute_deces_par_date():
     print(f"compute deces_par_date")
     _assert_all_date_ranges_have_same_duration()
     with _db_connect() as conn:
-        # plot
         def _compute_deces_par_date(date_range):
             res = defaultdict(int)
             cur = conn.cursor()
@@ -275,6 +276,32 @@ def _compute_deces_par_date():
         plt.title("Deces par date")
         plt.legend()
         plt.savefig(os.path.join(HERE, 'res_deces_par_date.png'))
+
+
+@main.command("compute_deces_par_age")
+def compute_deces_par_age():
+    _compute_deces_par_age()
+
+
+def _compute_deces_par_age():
+    print(f"compute deces_par_date")
+    _assert_all_date_ranges_have_same_duration()
+    with _db_connect() as conn:
+        def _compute_deces_par_age(annee):
+            res = defaultdict(int)
+            cur = conn.cursor()
+            rows = cur.execute('''SELECT age, nb FROM ages WHERE annee = ?''',
+                [annee])
+            return {age:nb for age, nb in rows}
+        deces_par_age_2017 = _compute_deces_par_age(2017)
+        deces_par_age_2020 = _compute_deces_par_age(2020)
+        plt.clf()
+        age_range = list(range(1, 101))
+        plt.plot(age_range, [deces_par_age_2017.get(i, 0) for i in age_range], label=f"2017")
+        plt.plot(age_range, [deces_par_age_2020.get(i, 0) for i in age_range], label=f"2020")
+        plt.title("Population par age")
+        plt.legend()
+        plt.savefig(os.path.join(HERE, 'res_population_par_age.png'))
 
 
 # parsing
