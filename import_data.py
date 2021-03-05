@@ -240,7 +240,7 @@ def _export_graphs():
         plt.plot(age_range, [taux_mortalite_par_age_2020.get(i, 0) for i in age_range], label=f"Covid19 (de {date_range_2020[0]} à {date_range_2020[1]})")
         plt.title("Taux de mortalité par âge")
         plt.legend()
-        plt.show()
+        plt.savefig(os.path.join(HERE, 'res_taux_mortalite_par_age.png'))
         # plot
         def _compute_deces_par_date(date_range):
             res = defaultdict(int)
@@ -255,11 +255,12 @@ def _export_graphs():
         deces_par_date_2020 = _compute_deces_par_date(date_range_2020)
         dates_2017 = _date_range_to_dates(date_range_2017)
         dates_2020 = _date_range_to_dates(date_range_2020)
+        plt.clf()
         plt.plot(range(len(dates_2017)), [deces_par_date_2017.get(d, 0) for d in dates_2017], label=f"Grippe (de {date_range_2017[0]} à {date_range_2017[1]})")
         plt.plot(range(len(dates_2020)), [deces_par_date_2020.get(d, 0) for d in dates_2020], label=f"Covid19 (de {date_range_2020[0]} à {date_range_2020[1]})")
         plt.title("Deces par date")
         plt.legend()
-        plt.show()
+        plt.savefig(os.path.join(HERE, 'res_deces_par_age.png'))
 
 
 # parsing
