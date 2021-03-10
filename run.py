@@ -213,9 +213,9 @@ def _compute_taux_mortalite_par_age():
         age_range = list(range(1, 101))
         plt.clf()
         plt.title("Taux de mortalité par âge")
-        def _compute_taux_mortalite_par_age(deces, pda):
+        def _compute_taux_mortalite_par_age(deces, pop):
             _div = lambda a, b: a/b if b else 0
-            return {age: _div(nb, pda.get(age)) for age, nb in deces.items()}
+            return {age: _div(nb, pop.get(age)) for age, nb in deces.items()}
         def _plot(title, date_range, annee):
             pop_par_age = _select_pop_par_age(conn, annee)
             nb_deces_par_age = _select_deces_par_age(conn, date_range)

@@ -20,6 +20,10 @@ Cette apparente différence s'explique par le fait que nous connaissons actuelle
 
 Ainsi, l'excés de mortalité que nous avons connu lors de la première vague de Covid19 s'explique non pas par la gravité du virus, qui au final semble n'avoir rien d'inhabituelle, mais simplement par le vieillisement rapide la population.
 
+On peut en effet constater que les âges dans lesquels le Covid19 a tué plus que la grippe de janvier 2017, sont les mêmes âges oú la population est plus nombreuse en 2020 qu'en 2017.
+
+![Décès par âge](results/deces_par_age.png)
+
 # Comment executer
 
 ```
