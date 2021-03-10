@@ -67,6 +67,7 @@ def all():
     _compute_taux_mortalite_par_age()
     _compute_deces_par_date()
     _compute_population_par_age()
+    _compute_deces_par_age()
 
 
 @main.command("init_db")
@@ -81,7 +82,7 @@ def _db_connect():
 def _init_db():
     with _db_connect() as conn:
         cur = conn.cursor()
-        cur.execute('''CREATE TABLE IF NOT EXISTS deces(sex text, date_naissance text, date_deces text)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS deces(sex text, date_naissance text, date_deces text, age integer)''')
         cur.execute('''DELETE FROM deces''')
         cur.execute('''CREATE TABLE IF NOT EXISTS ages(annee integer, age integer, nb integer)''')
         cur.execute('''DELETE FROM ages''')
@@ -135,10 +136,16 @@ def _parse_deces_file(conf):
         nb_inserted = 0
         for line in file.readlines():
             try:
+                date_naissance = _parse_date(line[81:89], def_month="06", def_day="15")
+                date_deces = _parse_date(line[154:162])
+                naissance_dt = _to_dt(date_naissance)
+                deces_dt = _to_dt(date_deces)
+                age = _dt_to_annees(deces_dt - naissance_dt)
                 parsed = {
                     "sex": _parse_sex(line[80]),
-                    "date_naissance": _parse_date(line[81:89], def_month="06", def_day="15"),
-                    "date_deces": _parse_date(line[154:162])
+                    "date_naissance": date_naissance,
+                    "date_deces": date_deces,
+                    "age": age
                 }
                 res.append(parsed)
                 nb_inserted += 1
@@ -153,8 +160,8 @@ def _parse_deces_file(conf):
 
 def _insert_deces_in_db(conn, rows):
     cur = conn.cursor()
-    cur.executemany('''INSERT INTO deces (sex, date_naissance, date_deces) VALUES (?, ?, ?)''',
-        [(row["sex"], row["date_naissance"], row["date_deces"]) for row in rows])
+    cur.executemany('''INSERT INTO deces (sex, date_naissance, date_deces, age) VALUES (?, ?, ?, ?)''',
+        [(row["sex"], row["date_naissance"], row["date_deces"], row["age"]) for row in rows])
 
 
 def _parse_pda_file(conf):
@@ -203,30 +210,14 @@ def _compute_taux_mortalite_par_age():
     print(f"compute taux_mortalite_par_age")
     _assert_all_date_ranges_have_same_duration()
     with _db_connect() as conn:
-        cur = conn.cursor()
         # build pyramides_des_ages
-        res = cur.execute('''SELECT annee, age, nb FROM ages''')
-        pyramides_des_ages = {}
-        for annee, age, nb in res:
-            pyramides_des_ages.setdefault(annee, {})[age] = nb
+        pop_par_age_2017 = _select_pop_par_age(conn, 2017)
+        pop_par_age_2020 = _select_pop_par_age(conn, 2020)
         # build nb_deces_par_age
-        def _compute_deces_par_age(date_range):
-            res = defaultdict(int)
-            cur = conn.cursor()
-            rows = cur.execute('''SELECT sex, date_naissance, date_deces FROM deces WHERE date_deces BETWEEN ? AND ?''',
-                [*date_range])
-            for sex, date_naissance, date_deces in rows:
-                naissance_dt = _to_dt(date_naissance)
-                deces_dt = _to_dt(date_deces)
-                deces_age = _dt_to_annees(deces_dt - naissance_dt)
-                # dans les pyramide-des-ages, tous les ages >= 100 sont comptés ensemble
-                deces_age = min(deces_age, 100)
-                res[deces_age] += 1
-            return res
         date_range_2017 = DATE_RANGES["grippe 2016/2017"]
         date_range_2020 = DATE_RANGES["covid 2019/2020"]
-        nb_deces_par_age_2017 = _compute_deces_par_age(date_range_2017)
-        nb_deces_par_age_2020 = _compute_deces_par_age(date_range_2020)
+        nb_deces_par_age_2017 = _select_deces_par_age(conn, date_range_2017)
+        nb_deces_par_age_2020 = _select_deces_par_age(conn, date_range_2020)
         # build taux_mortalite_par_age
         def _compute_taux_mortalite_par_age(deces, pda):
             res = {}
@@ -234,8 +225,8 @@ def _compute_taux_mortalite_par_age():
                 tot = pda.get(age)
                 res[age] = nb / tot if tot else 0
             return res
-        taux_mortalite_par_age_2017 = _compute_taux_mortalite_par_age(nb_deces_par_age_2017, pyramides_des_ages[2017])
-        taux_mortalite_par_age_2020 = _compute_taux_mortalite_par_age(nb_deces_par_age_2020, pyramides_des_ages[2020])
+        taux_mortalite_par_age_2017 = _compute_taux_mortalite_par_age(nb_deces_par_age_2017, pop_par_age_2017)
+        taux_mortalite_par_age_2020 = _compute_taux_mortalite_par_age(nb_deces_par_age_2020, pop_par_age_2020)
         # plot taux de mortalite
         age_range = list(range(1, 101))
         plt.clf()
@@ -244,6 +235,22 @@ def _compute_taux_mortalite_par_age():
         plt.title("Taux de mortalité par âge")
         plt.legend()
         plt.savefig(os.path.join(HERE, 'results/taux_mortalite_par_age.png'))
+
+
+def _select_pop_par_age(conn, annee):
+    rows = conn.cursor().execute(
+        '''SELECT age, nb FROM ages WHERE annee = ?''',
+        [annee]
+    )
+    return {age:nb for age, nb in rows}
+
+
+def _select_deces_par_age(conn, date_range):
+    rows = conn.cursor().execute(
+        '''SELECT age, count(*) FROM deces WHERE date_deces BETWEEN ? AND ? GROUP BY age''',
+        [*date_range]
+    )
+    return {age: nb for age, nb in rows}
 
 
 @main.command("compute_deces_par_date")
@@ -255,19 +262,10 @@ def _compute_deces_par_date():
     print(f"compute deces_par_date")
     _assert_all_date_ranges_have_same_duration()
     with _db_connect() as conn:
-        def _compute_deces_par_date(date_range):
-            res = defaultdict(int)
-            cur = conn.cursor()
-            rows = cur.execute('''SELECT sex, date_naissance, date_deces FROM deces WHERE date_deces BETWEEN ? AND ?''',
-                [*date_range])
-            for sex, date_naissance, date_deces in rows:
-                deces_dt = _to_dt(date_deces)
-                res[deces_dt] += 1
-            return res
         date_range_2017 = DATE_RANGES["grippe 2016/2017"]
         date_range_2020 = DATE_RANGES["covid 2019/2020"]
-        deces_par_date_2017 = _compute_deces_par_date(date_range_2017)
-        deces_par_date_2020 = _compute_deces_par_date(date_range_2020)
+        deces_par_date_2017 = _select_deces_par_date(conn, date_range_2017)
+        deces_par_date_2020 = _select_deces_par_date(conn, date_range_2020)
         dates_2017 = _date_range_to_dates(date_range_2017)
         dates_2020 = _date_range_to_dates(date_range_2020)
         plt.clf()
@@ -276,6 +274,14 @@ def _compute_deces_par_date():
         plt.title("Décès par date")
         plt.legend()
         plt.savefig(os.path.join(HERE, 'results/deces_par_date.png'))
+
+
+def _select_deces_par_date(conn, date_range):
+    rows = conn.cursor().execute(
+        '''SELECT date_deces, count(*) FROM deces WHERE date_deces BETWEEN ? AND ? GROUP BY date_deces''',
+        [*date_range]
+    )
+    return {_to_dt(date_deces): nb for date_deces, nb in rows}
 
 
 @main.command("compute_population_par_age")
@@ -287,14 +293,8 @@ def _compute_population_par_age():
     print(f"compute population_par_age")
     _assert_all_date_ranges_have_same_duration()
     with _db_connect() as conn:
-        def _compute_pop_par_age(annee):
-            res = defaultdict(int)
-            cur = conn.cursor()
-            rows = cur.execute('''SELECT age, nb FROM ages WHERE annee = ?''',
-                [annee])
-            return {age:nb for age, nb in rows}
-        pop_par_age_2017 = _compute_pop_par_age(2017)
-        pop_par_age_2020 = _compute_pop_par_age(2020)
+        pop_par_age_2017 = _select_pop_par_age(conn, 2017)
+        pop_par_age_2020 = _select_pop_par_age(conn, 2020)
         plt.clf()
         age_range = list(range(1, 101))
         plt.plot(age_range, [pop_par_age_2017.get(i, 0) for i in age_range], label=f"2017")
@@ -302,6 +302,29 @@ def _compute_population_par_age():
         plt.title("Population par âge")
         plt.legend()
         plt.savefig(os.path.join(HERE, 'results/population_par_age.png'))
+
+
+@main.command("compute_deces_par_age")
+def compute_deces_par_age():
+    _compute_deces_par_age()
+
+
+def _compute_deces_par_age():
+    print("compute deces_par_age")
+    _assert_all_date_ranges_have_same_duration()
+    with _db_connect() as conn:
+        date_range_2017 = DATE_RANGES["grippe 2016/2017"]
+        date_range_2020 = DATE_RANGES["covid 2019/2020"]
+        nb_deces_par_age_2017 = _select_deces_par_age(conn, date_range_2017)
+        nb_deces_par_age_2020 = _select_deces_par_age(conn, date_range_2020)
+        # plot taux de mortalite
+        age_range = list(range(1, 101))
+        plt.clf()
+        plt.plot(age_range, [nb_deces_par_age_2017.get(i, 0) for i in age_range], label=f"Grippe (de {date_range_2017[0]} à {date_range_2017[1]})")
+        plt.plot(age_range, [nb_deces_par_age_2020.get(i, 0) for i in age_range], label=f"Covid19 (de {date_range_2020[0]} à {date_range_2020[1]})")
+        plt.title("Décès par âge")
+        plt.legend()
+        plt.savefig(os.path.join(HERE, 'results/deces_par_age.png'))
 
 
 # parsing
